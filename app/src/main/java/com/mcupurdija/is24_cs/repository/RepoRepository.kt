@@ -15,6 +15,8 @@ class RepoRepository {
         return Pager(
             config = PagingConfig(
                 pageSize = Constants.QUERY_PAGE_SIZE,
+                initialLoadSize = Constants.QUERY_PAGE_SIZE,
+                prefetchDistance = 5,
                 enablePlaceholders = false
             ),
             pagingSourceFactory = {

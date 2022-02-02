@@ -1,21 +1,15 @@
 package com.mcupurdija.is24_cs.ui
 
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.AbsListView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.mcupurdija.is24_cs.adapter.RepoListAdapter
-import com.mcupurdija.is24_cs.repository.RepoRepository
-import com.mcupurdija.is24_cs.util.Constants.Companion.QUERY_PAGE_SIZE
-import com.mcupurdija.is24_cs.util.RepoCallState
 import com.mcupurdija.is24_cs.databinding.ActivityMainBinding
+import com.mcupurdija.is24_cs.repository.RepoRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
