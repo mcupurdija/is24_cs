@@ -5,8 +5,10 @@ import android.util.Log
 import android.view.View
 import android.widget.AbsListView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mcupurdija.is24_cs.adapter.RepoListAdapter
@@ -15,6 +17,7 @@ import com.mcupurdija.is24_cs.util.Constants.Companion.QUERY_PAGE_SIZE
 import com.mcupurdija.is24_cs.util.RepoCallState
 import com.mcupurdija.is24_cs.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -24,11 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     lateinit var viewModel: MainViewModel
-    private val userListAdapter = RepoListAdapter()
-
-    var isLoading = false
-    var isLastPage = false
-    var isScrolling = false
+    private val repoListAdapter = RepoListAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,75 +41,18 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         lifecycleScope.launch {
-            viewModel.getRepos()
+            viewModel.getReposPaging()
+            repoListAdapter.loadStateFlow.collectLatest { loadStates ->
+                binding.paginationProgressBar.isVisible = loadStates.refresh is LoadState.Loading
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
         lifecycleScope.launchWhenResumed {
-            viewModel.repos.collect { response ->
-                when (response) {
-                    is RepoCallState.Success -> {
-                        hideProgressBar()
-                        response.data?.let { data ->
-                            userListAdapter.differ.submitList(ArrayList(data))
-                            val totalPages = data.size / QUERY_PAGE_SIZE
-                            isLastPage = viewModel.pageNumber == totalPages
-                        }
-                    }
-                    is RepoCallState.Error -> {
-                        hideProgressBar()
-                        response.message?.let { message ->
-                            Log.e(TAG, "An error occurred: $message")
-                        }
-                    }
-                    is RepoCallState.Loading -> {
-                        showProgressBar()
-                    }
-                }
-            }
-        }
-    }
-
-    private fun hideProgressBar() {
-        binding.paginationProgressBar.visibility = View.INVISIBLE
-        isLoading = false
-    }
-
-    private fun showProgressBar() {
-        binding.paginationProgressBar.visibility = View.VISIBLE
-        isLoading = true
-    }
-
-    private val scrollListener = object : RecyclerView.OnScrollListener() {
-
-        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-            super.onScrolled(recyclerView, dx, dy)
-
-            val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-            val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
-            val visibleItemCount = layoutManager.childCount
-            val totalItemCount = layoutManager.itemCount
-
-            val isNotLoadingAndNotLastPage = !isLoading && !isLastPage
-            val isAtLastItem = firstVisibleItemPosition + visibleItemCount >= totalItemCount
-            val isNotAtBeginning = firstVisibleItemPosition >= 0
-            val isTotalMoreThanVisible = totalItemCount >= QUERY_PAGE_SIZE
-            val shouldPaginate =
-                isNotLoadingAndNotLastPage && isAtLastItem && isNotAtBeginning && isTotalMoreThanVisible && isScrolling
-            if (shouldPaginate) {
-                this@MainActivity.lifecycleScope.launch {
-                    viewModel.getRepos()
-                }
-                isScrolling = false
-            }
-        }
-
-        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-            super.onScrollStateChanged(recyclerView, newState)
-            if (newState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
-                isScrolling = true
+            viewModel.reposPaging.collectLatest { pagingData ->
+                repoListAdapter.submitData(pagingData)
             }
         }
     }
@@ -118,11 +60,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         binding.reposList.apply {
             layoutManager = LinearLayoutManager(context)
-            adapter = userListAdapter
-            addOnScrollListener(scrollListener)
+            adapter = repoListAdapter
         }
 
-        userListAdapter.setOnItemClickListener {
+        repoListAdapter.setOnItemClickListener {
             RepoDetailsDialogFragment.newInstance(it)
                 .show(supportFragmentManager, RepoDetailsDialogFragment.TAG)
         }
